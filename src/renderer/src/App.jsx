@@ -8,10 +8,8 @@ function App() {
 
 
   return (
-    <>
-      <img alt="logo" className="logo" src={electronLogo} />
-      <h1>Hello, world!</h1>
-    </>
+    <div>
+    </div>
   )
 }
 

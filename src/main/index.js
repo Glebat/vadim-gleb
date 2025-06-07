@@ -14,6 +14,43 @@ async function foo(event, data) {
   }
 }
 
+async function getPartnersHandler() {
+  try {
+    const client = global.dbclient;
+    const result = await client.query(`
+      WITH partner_sales AS (
+        SELECT 
+          p.partner_id,
+          p.partner_type,
+          p.partner_name,
+          p.partner_legal_address,
+          p.partner_phone,
+          p.partner_rating,
+          ROUND(SUM(s.sale_quantity * pr.product_min_price * pt.product_type_coefficient)::numeric, 2) as total_cost
+        FROM partners p
+        LEFT JOIN sales s ON p.partner_id = s.sale_partner_name_id
+        LEFT JOIN products pr ON s.sale_product_name_id = pr.product_id
+        LEFT JOIN product_types pt ON pr.product_type_name_id = pt.product_type_id
+        GROUP BY p.partner_id, p.partner_type, p.partner_name, p.partner_legal_address, p.partner_phone, p.partner_rating
+      )
+      SELECT 
+        partner_id,
+        partner_type,
+        partner_name,
+        partner_legal_address,
+        partner_phone,
+        partner_rating,
+        COALESCE(total_cost, 0) as total_cost
+      FROM partner_sales
+      ORDER BY partner_rating DESC, total_cost DESC
+    `);
+    return result.rows;
+  } catch (error) {
+    console.error('Error fetching partners:', error);
+    throw error;
+  }
+}
+
 function createWindow() {
   const mainWindow = new BrowserWindow({
     width: 900,
@@ -49,6 +86,7 @@ app.whenReady().then(async () => {
   global.dbclient = await connectDB();
 
   ipcMain.handle('sendSignal', foo)
+  ipcMain.handle('getPartners', getPartnersHandler)
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
